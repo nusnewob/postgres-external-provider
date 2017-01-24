@@ -28,6 +28,7 @@ WHERE pg_stat_activity.datname = $1
 var serviceUser = os.Getenv("PGUSER")
 var serviceHost = os.Getenv("PGHOST")
 var servicePass = os.Getenv("PGPASSWORD")
+var servicePgSSL = os.Getenv("PGSSLMODE")
 var systemPgsql = os.Getenv("FLYNN_POSTGRES")
 
 func init() {
@@ -39,6 +40,9 @@ func init() {
 	}
 	if servicePass == "" {
 		panic("PGPASSWORD must be set to the database admin user password")
+	}
+	if servicePgSSL == "" {
+		servicePgSSL = "disable"
 	}
 	if systemPgsql == "" {
 		systemPgsql = "postgres"
@@ -55,6 +59,7 @@ func main() {
 			User:     serviceUser,
 			Password: servicePass,
 			Database: "postgres",
+			sslmode:  servicePgSSL
 		},
 	})
 	if err != nil {
