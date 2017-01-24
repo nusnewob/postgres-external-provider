@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"crypto/tls"
 
 	"github.com/flynn/flynn/pkg/httphelper"
 	"github.com/flynn/flynn/pkg/postgres"
@@ -42,7 +43,7 @@ func init() {
 		panic("PGPASSWORD must be set to the database admin user password")
 	}
 	if servicePgSSL == "" {
-		servicePgSSL = "disable"
+		servicePgSSL = ""
 	}
 	if systemPgsql == "" {
 		systemPgsql = "postgres"
@@ -59,7 +60,7 @@ func main() {
 			User:     serviceUser,
 			Password: servicePass,
 			Database: "postgres",
-			sslmode:  servicePgSSL
+			TLSConfig: &tls.Config{ServerName: serviceHost, InsecureSkipVerify: true},
 		},
 	})
 	if err != nil {
@@ -91,6 +92,11 @@ func (p *pgAPI) createDatabase(ctx context.Context, w http.ResponseWriter, req *
 	username, password, database := random.Hex(16), random.Hex(16), random.Hex(16)
 
 	if err := p.db.Exec(fmt.Sprintf(`CREATE USER "%s" WITH PASSWORD '%s'`, username, password)); err != nil {
+		httphelper.Error(w, err)
+		return
+	}
+	if err := p.db.Exec(fmt.Sprintf(`GRANT "%s" TO "%s"`, username, serviceUser)); err != nil {
+		p.db.Exec(fmt.Sprintf(`DROP USER "%s"`, username))
 		httphelper.Error(w, err)
 		return
 	}
